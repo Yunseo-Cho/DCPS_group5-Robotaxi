@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+  <declaration>// Autonomous Electric Robotaxi - UPPAAL model
+// Based on SysML IBD + State Machine structure
+
+// Channels from IBD
+chan userCommand;
+chan statusInfo;
+chan sensorData;
+chan mapUpdate;
+chan telemetryData;
+chan brakeCmd;
+chan steeringCmd;
+chan powerRequest;
+
+// Internal control/event channels
+chan onRampEntered;
+broadcast chan collisionImminent;
+chan hazardCleared;
+chan safeGapFound;
+chan noSafeGap;
+chan acceptableGapFound;
+chan nextBestGapFound;
+chan planReady;
+chan gapClosedBelowThreshold;
+broadcast chan mergeCompleted;
+
+// Shared variables
+bool objectDetected = false;
+bool safeGap = false;
+bool planComputed = false;
+bool mergeDone = false;
+bool emergencyActive = false;
+
+int remainingLane = 200;
+int gapSeconds = 0;
+
+// Timing constants
+const int SENSOR_PERIOD = 2;
+const int GAP_EVAL_TIME = 10;
+const int MIN_SAFE_GAP = 4;
+const int CRITICAL_LANE = 50;
+const int BRAKE_TIME = 3;
+const int PLAN_TIME = 5;
+const int MERGE_TIME = 8;
+</declaration>
+
+  <template>
+    <name>AI_Controller</name>
+    <declaration>clock x;</declaration>
+
+    <location id="id0" x="-935" y="-85"><name x="-945" y="-115">Idle</name></location>
+    <location id="id1" x="-680" y="-85"><name x="-725" y="-115">Monitoring</name></location>
+    <location id="id2" x="-425" y="-85"><name x="-475" y="-115">GapEvaluation</name><label kind="invariant" x="-475" y="-65">x &lt;= GAP_EVAL_TIME</label></location>
+    <location id="id3" x="-425" y="170"><name x="-470" y="140">GapRequest</name></location>
+    <location id="id4" x="-170" y="-85"><name x="-220" y="-115">MergePlanning</name><label kind="invariant" x="-220" y="-65">x &lt;= PLAN_TIME</label></location>
+    <location id="id5" x="85" y="-85"><name x="35" y="-115">MergeExecution</name><label kind="invariant" x="35" y="-65">x &lt;= MERGE_TIME</label></location>
+    <location id="id6" x="340" y="-85"><name x="295" y="-115">MergeSuccess</name></location>
+    <location id="id7" x="-425" y="-340"><name x="-495" y="-370">EmergencyBraking</name><label kind="invariant" x="-495" y="-320">x &lt;= BRAKE_TIME</label></location>
+    <location id="id8" x="85" y="170"><name x="45" y="140">AbortReplan</name></location>
+
+    <init ref="id0"/>
+
+    <transition>
+      <source ref="id0"/><target ref="id1"/>
+      <label kind="synchronisation" x="-850" y="-105">onRampEntered?</label>
+      <label kind="assignment" x="-850" y="-85">x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id1"/><target ref="id2"/>
+      <label kind="synchronisation" x="-600" y="-105">sensorData?</label>
+      <label kind="assignment" x="-600" y="-85">x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id2"/><target ref="id4"/>
+      <label kind="guard" x="-345" y="-125">safeGap &amp;&amp; gapSeconds &gt;= MIN_SAFE_GAP</label>
+      <label kind="synchronisation" x="-345" y="-105">safeGapFound!</label>
+      <label kind="assignment" x="-345" y="-85">x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id2"/><target ref="id3"/>
+      <label kind="guard" x="-580" y="35">!safeGap &amp;&amp; remainingLane &gt; CRITICAL_LANE</label>
+      <label kind="synchronisation" x="-580" y="55">noSafeGap!</label>
+    </transition>
+
+    <transition>
+      <source ref="id3"/><target ref="id4"/>
+      <label kind="synchronisation" x="-340" y="155">acceptableGapFound?</label>
+      <label kind="assignment" x="-340" y="175">x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id4"/><target ref="id5"/>
+      <label kind="guard" x="-90" y="-125">x &gt;= 1</label>
+      <label kind="synchronisation" x="-90" y="-105">planReady!</label>
+      <label kind="assignment" x="-90" y="-85">planComputed = true, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id5"/><target ref="id6"/>
+      <label kind="guard" x="170" y="-125">x &gt;= 2</label>
+      <label kind="synchronisation" x="170" y="-105">mergeCompleted!</label>
+      <label kind="assignment" x="170" y="-85">mergeDone = true</label>
+    </transition>
+
+    <transition>
+      <source ref="id5"/><target ref="id8"/>
+      <label kind="synchronisation" x="80" y="35">gapClosedBelowThreshold?</label>
+      <label kind="assignment" x="80" y="55">planComputed = false</label>
+    </transition>
+
+    <transition>
+      <source ref="id8"/><target ref="id4"/>
+      <label kind="synchronisation" x="-65" y="155">nextBestGapFound?</label>
+      <label kind="assignment" x="-65" y="175">x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id1"/><target ref="id7"/>
+      <label kind="synchronisation" x="-620" y="-245">collisionImminent?</label>
+      <label kind="assignment" x="-620" y="-225">emergencyActive = true, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id2"/><target ref="id7"/>
+      <label kind="synchronisation" x="-430" y="-245">collisionImminent?</label>
+      <label kind="assignment" x="-430" y="-225">emergencyActive = true, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id4"/><target ref="id7"/>
+      <label kind="synchronisation" x="-260" y="-245">collisionImminent?</label>
+      <label kind="assignment" x="-260" y="-225">emergencyActive = true, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id5"/><target ref="id7"/>
+      <label kind="synchronisation" x="-40" y="-245">collisionImminent?</label>
+      <label kind="assignment" x="-40" y="-225">emergencyActive = true, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id7"/><target ref="id1"/>
+      <label kind="guard" x="-585" y="-360">x &gt;= BRAKE_TIME</label>
+      <label kind="synchronisation" x="-585" y="-340">hazardCleared?</label>
+      <label kind="assignment" x="-585" y="-320">emergencyActive = false, x = 0</label>
+    </transition>
+
+    <transition>
+      <source ref="id6"/><target ref="id6"/>
+      <label kind="synchronisation" x="325" y="-10">statusInfo!</label>
+    </transition>
+  </template>
+
+  <template>
+    <name>Sensors</name>
+    <declaration>clock s;</declaration>
+    <location id="s0" x="-255" y="0"><name x="-285" y="-30">Sense</name><label kind="invariant" x="-285" y="20">s &lt;= SENSOR_PERIOD</label></location>
+    <location id="s1" x="0" y="0"><name x="-35" y="-30">SendData</name></location>
+    <init ref="s0"/>
+    <transition><source ref="s0"/><target ref="s1"/><label kind="guard" x="-185" y="-40">s &gt;= SENSOR_PERIOD</label><label kind="assignment" x="-185" y="-20">objectDetected = true</label></transition>
+    <transition><source ref="s1"/><target ref="s0"/><label kind="synchronisation" x="-145" y="35">sensorData!</label><label kind="assignment" x="-145" y="55">s = 0</label></transition>
+    <transition><source ref="s0"/><target ref="s0"/><label kind="guard" x="-360" y="80">objectDetected &amp;&amp; remainingLane &lt;= CRITICAL_LANE</label><label kind="synchronisation" x="-360" y="100">collisionImminent!</label></transition>
+  </template>
+
+  <template>
+    <name>Environment</name>
+    <declaration>clock e;</declaration>
+    <location id="e0" x="-255" y="0"><name x="-285" y="-30">BeforeRamp</name></location>
+    <location id="e1" x="0" y="0"><name x="-45" y="-30">OnRamp</name></location>
+    <location id="e2" x="255" y="0"><name x="215" y="-30">GapOpen</name></location>
+    <location id="e3" x="255" y="170"><name x="210" y="140">GapClosed</name></location>
+    <init ref="e0"/>
+    <transition><source ref="e0"/><target ref="e1"/><label kind="synchronisation" x="-180" y="-30">onRampEntered!</label><label kind="assignment" x="-180" y="-10">e = 0, remainingLane = 200</label></transition>
+    <transition><source ref="e1"/><target ref="e2"/><label kind="guard" x="70" y="-40">e &gt;= 3</label><label kind="assignment" x="70" y="-20">safeGap = true, gapSeconds = 5</label></transition>
+    <transition><source ref="e2"/><target ref="e2"/><label kind="synchronisation" x="315" y="-45">acceptableGapFound!</label></transition>
+    <transition><source ref="e2"/><target ref="e3"/><label kind="synchronisation" x="250" y="65">gapClosedBelowThreshold!</label><label kind="assignment" x="250" y="85">safeGap = false, gapSeconds = 1</label></transition>
+    <transition><source ref="e3"/><target ref="e2"/><label kind="synchronisation" x="70" y="145">nextBestGapFound!</label><label kind="assignment" x="70" y="165">safeGap = true, gapSeconds = 5</label></transition>
+    <transition><source ref="e1"/><target ref="e1"/><label kind="guard" x="-60" y="80">remainingLane &gt; 0</label><label kind="assignment" x="-60" y="100">remainingLane = remainingLane - 10</label></transition>
+  </template>
+
+  <template>
+    <name>BrakeSystem</name>
+    <location id="b0" x="-170" y="0"><name x="-200" y="-30">Ready</name></location>
+    <location id="b1" x="85" y="0"><name x="45" y="-30">Braking</name></location>
+    <init ref="b0"/>
+    <transition><source ref="b0"/><target ref="b1"/><label kind="synchronisation" x="-95" y="-30">brakeCmd?</label></transition>
+    <transition><source ref="b1"/><target ref="b0"/><label kind="synchronisation" x="-85" y="35">hazardCleared!</label></transition>
+    <transition><source ref="b0"/><target ref="b1"/><label kind="synchronisation" x="-115" y="75">collisionImminent?</label></transition>
+  </template>
+
+  <template>
+    <name>SteeringSystem</name>
+    <location id="st0" x="-170" y="0"><name x="-200" y="-30">Straight</name></location>
+    <location id="st1" x="85" y="0"><name x="45" y="-30">Steering</name></location>
+    <init ref="st0"/>
+    <transition><source ref="st0"/><target ref="st1"/><label kind="synchronisation" x="-100" y="-30">planReady?</label></transition>
+    <transition><source ref="st1"/><target ref="st0"/><label kind="synchronisation" x="-90" y="35">mergeCompleted?</label></transition>
+  </template>
+
+  <template>
+    <name>PowerSystem</name>
+    <location id="p0" x="-170" y="0"><name x="-205" y="-30">Standby</name></location>
+    <location id="p1" x="85" y="0"><name x="45" y="-30">Supplying</name></location>
+    <init ref="p0"/>
+    <transition><source ref="p0"/><target ref="p1"/><label kind="synchronisation" x="-110" y="-30">planReady?</label></transition>
+    <transition><source ref="p1"/><target ref="p0"/><label kind="synchronisation" x="-90" y="35">mergeCompleted?</label></transition>
+  </template>
+
+  <template>
+    <name>HMI</name>
+    <location id="h0" x="-170" y="0"><name x="-205" y="-30">Waiting</name></location>
+    <location id="h1" x="85" y="0"><name x="45" y="-30">Displayed</name></location>
+    <init ref="h0"/>
+    <transition><source ref="h0"/><target ref="h0"/><label kind="synchronisation" x="-155" y="55">userCommand!</label></transition>
+    <transition><source ref="h0"/><target ref="h1"/><label kind="synchronisation" x="-100" y="-30">statusInfo?</label></transition>
+  </template>
+
+  <template>
+    <name>Cloud</name>
+    <location id="c0" x="-170" y="0"><name x="-200" y="-30">Online</name></location>
+    <init ref="c0"/>
+    <transition><source ref="c0"/><target ref="c0"/><label kind="synchronisation" x="-155" y="55">mapUpdate!</label></transition>
+    <transition><source ref="c0"/><target ref="c0"/><label kind="synchronisation" x="-155" y="95">telemetryData?</label></transition>
+  </template>
+
+  <system>AI = AI_Controller();
+SEN = Sensors();
+ENV = Environment();
+BRK = BrakeSystem();
+STR = SteeringSystem();
+PWR = PowerSystem();
+UI = HMI();
+CLD = Cloud();
+
+system AI, SEN, ENV, BRK, STR, PWR, UI, CLD;</system>
+
+  <queries>
+    <query>
+      <formula>A[] not deadlock</formula>
+      <comment>No deadlock should occur.</comment>
+    </query>
+    <query>
+      <formula>E&lt;&gt; AI.MergeSuccess</formula>
+      <comment>There exists a path where the robotaxi merges successfully.</comment>
+    </query>
+    <query>
+      <formula>A[] AI.MergeExecution imply planComputed</formula>
+      <comment>The vehicle should execute merge only after a plan is computed.</comment>
+    </query>
+    <query>
+      <formula>A[] emergencyActive imply AI.EmergencyBraking</formula>
+      <comment>Emergency flag should correspond to EmergencyBraking state.</comment>
+    </query>
+  </queries>
+</nta>
