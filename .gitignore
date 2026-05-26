@@ -1,0 +1,74 @@
+# =========================================================
+# Visual Paradigm Project Ignore File
+# =========================================================
+
+# Visual Paradigm workspace/cache
+.vpworkspace/
+.vp_cache/
+.vpbackup/
+.vpconfig/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.log
+
+# Auto-save and backup files
+*.vpp.bak
+*.autosave
+
+# Generated exports
+exports/
+generated/
+out/
+build/
+
+# Image exports
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# Document outputs
+*.docx
+*.pptx
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# LaTeX auxiliary files (if report is included)
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# UPPAAL generated files
+*.xtr
+*.trace
+*.output
+
+# Compiled/intermediate artifacts
+bin/
+obj/
+dist/
+
+# Keep the actual VP project file
+!*.vpp
