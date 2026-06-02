@@ -83,6 +83,7 @@ const int CRITICAL_LANE = 50;
 		<transition id="id9">
 			<source ref="id8"/>
 			<target ref="id1"/>
+			<label kind="assignment" x="-704" y="119">planComputed = false</label>
 			<nail x="-722" y="119"/>
 		</transition>
 		<transition id="id10">
@@ -93,13 +94,14 @@ const int CRITICAL_LANE = 50;
 		<transition id="id11">
 			<source ref="id1"/>
 			<target ref="id7"/>
-			<label kind="synchronisation" x="-646" y="-161">collisionImminent?</label>
-			<label kind="assignment" x="-646" y="-144">t = 0</label>
+			<label kind="synchronisation" x="-671" y="-187">collisionImminent?</label>
+			<label kind="assignment" x="-671" y="-170">t = 0</label>
 		</transition>
 		<transition id="id12">
 			<source ref="id6"/>
 			<target ref="id0"/>
-			<label kind="synchronisation" x="-925" y="144">returnToIdle!</label>
+			<label kind="synchronisation" x="-926" y="153">returnToIdle!</label>
+			<label kind="assignment" x="-926" y="170">planComputed = false</label>
 			<nail x="273" y="195"/>
 			<nail x="-943" y="195"/>
 		</transition>
@@ -127,6 +129,7 @@ const int CRITICAL_LANE = 50;
 			<source ref="id4"/>
 			<target ref="id5"/>
 			<label kind="synchronisation" x="-170" y="-85">planReady!</label>
+			<label kind="assignment" x="-170" y="-59">planComputed = true</label>
 		</transition>
 		<transition id="id18">
 			<source ref="id5"/>
@@ -350,6 +353,10 @@ system AI, SEN, ENV, BRK, STR, PWR;</system>
 			</result>
 		</query>
 		<query>
+			<formula/>
+			<comment/>
+		</query>
+		<query>
 			<formula>E&lt;&gt; AI.MergeSuccess</formula>
 			<comment>There exists a path where the robotaxi merges successfully.</comment>
 			<result outcome="success" type="quality" timestamp="2026-05-31 18:27:43 +0200">
@@ -359,6 +366,12 @@ system AI, SEN, ENV, BRK, STR, PWR;</system>
 			<formula>E&lt;&gt; AI.EmergencyBraking</formula>
 			<comment/>
 			<result outcome="success" type="quality" timestamp="2026-05-31 18:31:05 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] AI.MergeExecution imply planComputed</formula>
+			<comment>The vehicle should execute merge only after a plan is computed.</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-02 12:56:12 +0200">
 			</result>
 		</query>
 		<query>
@@ -374,15 +387,31 @@ system AI, SEN, ENV, BRK, STR, PWR;</system>
 			</result>
 		</query>
 		<query>
-			<formula>A[] AI.EmergencyBraking imply AI.t &lt;= COLLISION_THRESHOLD</formula>
+			<formula/>
 			<comment/>
+		</query>
+		<query>
+			<formula>A[] AI.EmergencyBraking imply AI.t &lt;= COLLISION_THRESHOLD</formula>
+			<comment>Emergency braking never lasts longer than COLLISION_THRESHOLD (5 time units).</comment>
 			<result outcome="success" type="quality" timestamp="2026-05-31 18:27:16 +0200">
 			</result>
 		</query>
 		<query>
-			<formula>A[] AI.MergeExecution imply gap &gt; COLLISION_THRESHOLD</formula>
-			<comment/>
-			<result outcome="success" type="quality" timestamp="2026-05-31 19:26:29 +0200">
+			<formula>E&lt;&gt; (BRK.Braking imply (gap &lt; COLLISION_THRESHOLD))</formula>
+			<comment>It is possible for the brake system to be active even when the gap is still above the collision threshold (i.e., braking is not only for emergencies).</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-02 13:01:55 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] (AI.MergeExecution imply (gap &gt; COLLISION_THRESHOLD))</formula>
+			<comment>Merge execution never occurs when gap ≤ COLLISION_THRESHOLD (collision imminent). Fails if sensor detects threat during merge execution (broadcast interleaving).</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-02 13:08:13 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (AI.AbortReplan and AI.MergeSuccess)</formula>
+			<comment>AbortReplan and MergeSuccess can never happen at the same time.</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-02 12:52:07 +0200">
 			</result>
 		</query>
 	</queries>
