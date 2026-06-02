@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Autonomous Electric Robotaxi - UPPAAL model
+// Based on SysML IBD + State Machine structure
+
+// Channels from IBD
+chan userCommand;
+chan statusInfo;
+chan sensorData;
+chan mapUpdate;
+chan telemetryData;
+chan brakeCmd;
+chan steeringCmd;
+chan powerRequest;
+
+// Internal control/event channels
+chan onRampEntered;
+chan collisionImminent;
+chan hazardCleared;
+chan safeGapFound;
+chan noSafeGap;
+chan acceptableGapFound;
+chan nextBestGapFound;
+chan planReady;
+chan safeGapLost;
+chan returnToIdle;
+broadcast chan mergeCompleted;
+
+// Shared variables
+bool objectDetected = false;
+bool safeGap = false;
+bool planComputed = false;
+bool mergeDone = false;
+bool safeGapDetected = false;
+//bool emergencyActive = false;
+
+int remainingLane = 200;
+int gapSeconds = 0;
+int gap;
+
+// Timing constants
+//const int SENSOR_PERIOD = 2;
+const int COLLISION_THRESHOLD = 5;
+const int THRESHOLD = 10;
+const int CRITICAL_LANE = 50;
+//const int BRAKE_TIME = 3;
+//const int PLAN_TIME = 5;
+//const int MERGE_TIME = 8;
+</declaration>
+	<template>
+		<name>AI_Controller</name>
+		<declaration>clock t;</declaration>
+		<location id="id0" x="-944" y="-60">
+			<name x="-954" y="-90">Idle</name>
+		</location>
+		<location id="id1" x="-722" y="-60">
+			<name x="-765" y="-43">Monitoring</name>
+		</location>
+		<location id="id2" x="-459" y="-59">
+			<name x="-510" y="-42">GapEvaluation</name>
+		</location>
+		<location id="id3" x="-459" y="51">
+			<name x="-442" y="42">GapRequest</name>
+		</location>
+		<location id="id4" x="-229" y="-60">
+			<name x="-280" y="-43">MergePlanning</name>
+		</location>
+		<location id="id5" x="34" y="-59">
+			<name x="0" y="-42">MergeExecution</name>
+		</location>
+		<location id="id6" x="272" y="-59">
+			<name x="227" y="-89">MergeSuccess</name>
+		</location>
+		<location id="id7" x="-365" y="-280">
+			<name x="-435" y="-310">EmergencyBraking</name>
+			<label kind="invariant" x="-476" y="-255">t &lt;= COLLISION_THRESHOLD</label>
+		</location>
+		<location id="id8" x="34" y="119">
+			<name x="-17" y="85">AbortReplan</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id9">
+			<source ref="id8"/>
+			<target ref="id1"/>
+			<nail x="-722" y="119"/>
+		</transition>
+		<transition id="id10">
+			<source ref="id3"/>
+			<target ref="id1"/>
+			<nail x="-722" y="51"/>
+		</transition>
+		<transition id="id11">
+			<source ref="id1"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-646" y="-161">collisionImminent?</label>
+			<label kind="assignment" x="-646" y="-144">t = 0</label>
+		</transition>
+		<transition id="id12">
+			<source ref="id6"/>
+			<target ref="id0"/>
+			<label kind="synchronisation" x="-925" y="144">returnToIdle!</label>
+			<nail x="273" y="195"/>
+			<nail x="-943" y="195"/>
+		</transition>
+		<transition id="id13">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-901" y="-85">onRampEntered?</label>
+		</transition>
+		<transition id="id14">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-671" y="-85">sensorData?</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id2"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="-399" y="-85">safeGapFound?</label>
+		</transition>
+		<transition id="id16">
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-450" y="0">noSafeGap?</label>
+		</transition>
+		<transition id="id17">
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-170" y="-85">planReady!</label>
+		</transition>
+		<transition id="id18">
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="76" y="-85">mergeCompleted!</label>
+		</transition>
+		<transition id="id19">
+			<source ref="id5"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="42" y="25">safeGapLost?</label>
+		</transition>
+		<transition id="id20">
+			<source ref="id2"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-493" y="-178">collisionImminent?</label>
+			<label kind="assignment" x="-493" y="-161">t = 0</label>
+		</transition>
+		<transition id="id21">
+			<source ref="id4"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-340" y="-161">collisionImminent?</label>
+			<label kind="assignment" x="-340" y="-144">t = 0</label>
+		</transition>
+		<transition id="id22">
+			<source ref="id5"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-221" y="-178">collisionImminent?</label>
+			<label kind="assignment" x="-119" y="-161">t = 0</label>
+		</transition>
+		<transition id="id23">
+			<source ref="id7"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-663" y="-271">hazardCleared?</label>
+			<nail x="-722" y="-280"/>
+		</transition>
+	</template>
+	<template>
+		<name>Sensors</name>
+		<declaration>//clock s;</declaration>
+		<location id="id24" x="-255" y="0">
+			<name x="-285" y="-30">Sense</name>
+		</location>
+		<location id="id25" x="0" y="0">
+			<name x="-35" y="-30">SendData</name>
+		</location>
+		<init ref="id24"/>
+		<transition id="id26">
+			<source ref="id25"/>
+			<target ref="id24"/>
+		</transition>
+		<transition id="id27">
+			<source ref="id24"/>
+			<target ref="id25"/>
+			<label kind="select" x="-391" y="-136">i : int[0,20]</label>
+			<label kind="synchronisation" x="-170" y="-17">sensorData!</label>
+			<label kind="assignment" x="-391" y="-119">gap = i</label>
+		</transition>
+		<transition id="id28">
+			<source ref="id24"/>
+			<target ref="id24"/>
+			<label kind="guard" x="-391" y="-76">gap &lt;= COLLISION_THRESHOLD</label>
+			<label kind="synchronisation" x="-331" y="-59">collisionImminent!</label>
+			<nail x="-285" y="-30"/>
+			<nail x="-225" y="-30"/>
+		</transition>
+	</template>
+	<template>
+		<name>Environment</name>
+		<declaration>//clock c;</declaration>
+		<location id="id29" x="-255" y="0">
+			<name x="-285" y="-30">BeforeRamp</name>
+		</location>
+		<location id="id30" x="0" y="0">
+			<name x="-25" y="17">OnRamp</name>
+		</location>
+		<location id="id31" x="255" y="-161">
+			<name x="215" y="-191">GapOpen</name>
+		</location>
+		<location id="id32" x="255" y="170">
+			<name x="210" y="140">GapClosed</name>
+		</location>
+		<init ref="id29"/>
+		<transition id="id33">
+			<source ref="id32"/>
+			<target ref="id30"/>
+			<label kind="guard" x="-59" y="204">gap &lt;= THRESHOLD &amp;&amp;
+gap &gt; COLLISION_THRESHOLD</label>
+			<nail x="255" y="229"/>
+			<nail x="0" y="229"/>
+		</transition>
+		<transition id="id34">
+			<source ref="id31"/>
+			<target ref="id32"/>
+			<label kind="synchronisation" x="153" y="34">safeGapLost!</label>
+		</transition>
+		<transition id="id35">
+			<source ref="id31"/>
+			<target ref="id29"/>
+			<label kind="synchronisation" x="-245" y="-178">returnToIdle?</label>
+			<nail x="238" y="-161"/>
+			<nail x="255" y="-161"/>
+			<nail x="-255" y="-161"/>
+		</transition>
+		<transition id="id36">
+			<source ref="id30"/>
+			<target ref="id32"/>
+			<label kind="guard" x="34" y="59">gap &lt;= THRESHOLD &amp;&amp;
+gap &gt; COLLISION_THRESHOLD</label>
+			<label kind="synchronisation" x="68" y="93">noSafeGap!</label>
+		</transition>
+		<transition id="id37">
+			<source ref="id29"/>
+			<target ref="id30"/>
+			<label kind="synchronisation" x="-195" y="8">onRampEntered!</label>
+		</transition>
+		<transition id="id38">
+			<source ref="id30"/>
+			<target ref="id31"/>
+			<label kind="guard" x="51" y="-93">gap &gt; THRESHOLD</label>
+			<label kind="synchronisation" x="68" y="-76">safeGapFound!</label>
+		</transition>
+		<transition id="id39">
+			<source ref="id32"/>
+			<target ref="id31"/>
+			<label kind="guard" x="263" y="17">gap &gt; THRESHOLD</label>
+			<label kind="synchronisation" x="263" y="34">safeGapFound!</label>
+		</transition>
+	</template>
+	<template>
+		<name>BrakeSystem</name>
+		<location id="id40" x="-170" y="0">
+			<name x="-200" y="-30">Ready</name>
+		</location>
+		<location id="id41" x="85" y="0">
+			<name x="45" y="-30">Braking</name>
+		</location>
+		<init ref="id40"/>
+		<transition id="id42">
+			<source ref="id40"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-85" y="-42">brakeCmd?</label>
+		</transition>
+		<transition id="id43">
+			<source ref="id41"/>
+			<target ref="id40"/>
+			<label kind="synchronisation" x="-102" y="8">hazardCleared!</label>
+		</transition>
+		<transition id="id44">
+			<source ref="id40"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-119" y="-25">collisionImminent?</label>
+		</transition>
+	</template>
+	<template>
+		<name>SteeringSystem</name>
+		<location id="id45" x="-170" y="0">
+			<name x="-200" y="-30">Straight</name>
+		</location>
+		<location id="id46" x="85" y="0">
+			<name x="45" y="-30">Steering</name>
+		</location>
+		<init ref="id45"/>
+		<transition id="id47">
+			<source ref="id45"/>
+			<target ref="id46"/>
+			<label kind="synchronisation" x="-76" y="-25">planReady?</label>
+		</transition>
+		<transition id="id48">
+			<source ref="id46"/>
+			<target ref="id45"/>
+			<label kind="synchronisation" x="-93" y="8">mergeCompleted?</label>
+		</transition>
+		<transition id="id49">
+			<source ref="id46"/>
+			<target ref="id46"/>
+			<label kind="synchronisation" x="119" y="-17">planReady?</label>
+			<nail x="115" y="-30"/>
+			<nail x="115" y="-10"/>
+		</transition>
+	</template>
+	<template>
+		<name>PowerSystem</name>
+		<location id="id50" x="-170" y="0">
+			<name x="-205" y="-30">Standby</name>
+		</location>
+		<location id="id51" x="85" y="0">
+			<name x="45" y="-30">Supplying</name>
+		</location>
+		<init ref="id50"/>
+		<transition id="id52">
+			<source ref="id50"/>
+			<target ref="id51"/>
+			<label kind="synchronisation" x="-76" y="-25">planReady?</label>
+		</transition>
+		<transition id="id53">
+			<source ref="id51"/>
+			<target ref="id50"/>
+			<label kind="synchronisation" x="-93" y="0">mergeCompleted?</label>
+		</transition>
+		<transition id="id54">
+			<source ref="id51"/>
+			<target ref="id51"/>
+			<label kind="synchronisation" x="127" y="-25">planReady?</label>
+			<nail x="115" y="-30"/>
+			<nail x="115" y="-10"/>
+		</transition>
+	</template>
+	<system>AI = AI_Controller();
+SEN = Sensors();
+ENV = Environment();
+BRK = BrakeSystem();
+STR = SteeringSystem();
+PWR = PowerSystem();
+
+system AI, SEN, ENV, BRK, STR, PWR;</system>
+	<queries>
+		<query>
+			<formula>A[] not deadlock</formula>
+			<comment>No deadlock should occur.</comment>
+			<result outcome="success" type="quality" timestamp="2026-05-28 15:05:30 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; AI.MergeSuccess</formula>
+			<comment>There exists a path where the robotaxi merges successfully.</comment>
+			<result outcome="success" type="quality" timestamp="2026-05-31 18:27:43 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; AI.EmergencyBraking</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-05-31 18:31:05 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>AI.GapEvaluation &amp;&amp; gap &gt; THRESHOLD --&gt; AI.MergeSuccess</formula>
+			<comment/>
+			<result outcome="failure" type="quality" timestamp="2026-05-31 20:12:05 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>gap &lt;= COLLISION_THRESHOLD --&gt; AI.EmergencyBraking</formula>
+			<comment/>
+			<result outcome="failure" type="quality" timestamp="2026-05-31 19:25:30 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] AI.EmergencyBraking imply AI.t &lt;= COLLISION_THRESHOLD</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-05-31 18:27:16 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] AI.MergeExecution imply gap &gt; COLLISION_THRESHOLD</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-05-31 19:26:29 +0200">
+			</result>
+		</query>
+	</queries>
+</nta>
